@@ -2,31 +2,14 @@ services:
   - type: web
     name: lagos-life-api
     runtime: docker
-    rootDir: backend
+    rootDir: apps/api
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: lagos-life-db
           property: connectionString
-
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: lagos-life-redis
-          property: connectionString
-
-  - type: worker
-    name: lagos-life-worker
-    runtime: docker
-    rootDir: backend
-    dockerfilePath: ./Dockerfile.worker
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: lagos-life-db
-          property: connectionString
-
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -36,8 +19,8 @@ services:
   - type: web
     name: lagos-life-frontend
     runtime: node
-    rootDir: frontend
-    buildCommand: npm install && npm run build
+    rootDir: apps/web
+    buildCommand: npm ci && npm run build
     startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
