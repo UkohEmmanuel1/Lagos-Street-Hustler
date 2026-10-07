@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: lagos-life-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lagos-life-db
+          property: connectionString
+
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: lagos-life-redis
+          property: connectionString
+
+  - type: worker
+    name: lagos-life-worker
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile.worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lagos-life-db
+          property: connectionString
+
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: lagos-life-redis
+          property: connectionString
+
+  - type: web
+    name: lagos-life-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://lagos-life-api.onrender.com
+
+  - type: keyvalue
+    name: lagos-life-redis
+    plan: free
+
+databases:
+  - name: lagos-life-db
+    plan: free
