@@ -2,7 +2,6 @@ services:
   - type: web
     name: lagos-life-api
     runtime: docker
-    rootDir: apps/api
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
@@ -20,7 +19,7 @@ services:
     name: lagos-life-frontend
     runtime: node
     rootDir: apps/web
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
