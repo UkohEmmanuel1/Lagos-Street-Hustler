@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lagos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lagos}
+      POSTGRES_DB: ${POSTGRES_DB:-lagos_hustler}
+    ports: ["5432:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lagos -d lagos_hustler"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  api:
+    build: ./apps/api
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lagos}:${POSTGRES_PASSWORD:-lagos}@postgres:5432/${POSTGRES_DB:-lagos_hustler}
+      REDIS_URL: redis://redis:6379/0
+    ports: ["8000:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+  web:
+    build: ./apps/web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports: ["3000:3000"]
+    depends_on: [api]
+volumes:
+  postgres_data:
