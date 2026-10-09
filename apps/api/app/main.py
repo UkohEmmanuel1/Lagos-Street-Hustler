@@ -45,7 +45,8 @@ def connect_db():
     if DATABASE_URL.startswith("postgres"):
         try:
             import psycopg
-            conn = psycopg.connect(DATABASE_URL, autocommit=True)
+            from psycopg.rows import dict_row
+            conn = psycopg.connect(DATABASE_URL, autocommit=True, row_factory=dict_row)
             conn.execute("CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at DOUBLE PRECISION NOT NULL)")
             conn.execute("CREATE TABLE IF NOT EXISTS messages (id BIGSERIAL PRIMARY KEY, room TEXT NOT NULL, sender TEXT NOT NULL, body TEXT NOT NULL, created_at DOUBLE PRECISION NOT NULL)")
             return conn, True
@@ -68,7 +69,7 @@ init_db()
 def db_one(sql: str, params: tuple = ()):
     conn, pg = connect_db()
     try:
-        cur = conn.execute(sql, params)
+        cur = conn.execute(sql.replace("?", "%s") if pg else sql, params)
         row = cur.fetchone()
         if row is None: return None
         return dict(row) if not pg else row
@@ -78,7 +79,7 @@ def db_one(sql: str, params: tuple = ()):
 def db_run(sql: str, params: tuple = ()):
     conn, pg = connect_db()
     try:
-        conn.execute(sql, params)
+        conn.execute(sql.replace("?", "%s") if pg else sql, params)
         if not pg: conn.commit()
     finally:
         conn.close()
@@ -155,7 +156,7 @@ def players(me: dict = Depends(current_player)):
     conn, pg = connect_db()
     try:
         rows = conn.execute("SELECT id, username FROM players ORDER BY username LIMIT 100").fetchall()
-        return {"players": [dict(r) if not pg else {"id": r[0], "username": r[1]} for r in rows]}
+        return {"players": [dict(r) for r in rows]}
     finally:
         conn.close()
 
@@ -166,10 +167,8 @@ def get_messages(room: str = Query("nearby", min_length=1, max_length=80),
         raise HTTPException(status_code=403, detail="Not a member of this conversation")
     conn, pg = connect_db()
     try:
-        rows = conn.execute("SELECT id, room, sender, body, created_at FROM messages WHERE room = ? ORDER BY id DESC LIMIT ?",
-                            (room, limit)).fetchall()
-        if pg:
-            return {"messages": [{"id": r[0], "room": r[1], "sender": r[2], "body": r[3], "created_at": r[4]} for r in reversed(rows)]}
+        sql = "SELECT id, room, sender, body, created_at FROM messages WHERE room = ? ORDER BY id DESC LIMIT ?"
+        rows = conn.execute(sql.replace("?", "%s") if pg else sql, (room, limit)).fetchall()
         return {"messages": [dict(r) for r in reversed(rows)]}
     finally:
         conn.close()
