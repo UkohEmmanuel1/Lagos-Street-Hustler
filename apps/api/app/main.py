@@ -165,6 +165,8 @@ def get_messages(room: str = Query("nearby", min_length=1, max_length=80),
                  limit: int = Query(50, ge=1, le=100), me: dict = Depends(current_player)):
     if room.startswith("dm:") and me["id"] not in room.split(":")[1:]:
         raise HTTPException(status_code=403, detail="Not a member of this conversation")
+    if room.startswith("group:") and me["id"] not in rooms.get(room, set()):
+        raise HTTPException(status_code=403, detail="Join this group before reading its messages")
     conn, pg = connect_db()
     try:
         sql = "SELECT id, room, sender, body, created_at FROM messages WHERE room = ? ORDER BY id DESC LIMIT ?"
