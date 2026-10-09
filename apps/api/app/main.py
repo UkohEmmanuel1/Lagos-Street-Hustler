@@ -268,7 +268,7 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(..., min_length=1
                     room = "nearby"
                 msg = {"type":"message","room":room,"sender":me["username"],"body":body,"created_at":time.time()}
                 db_run("INSERT INTO messages(room, sender, body, created_at) VALUES(?,?,?,?)", (room, me["username"], body, msg["created_at"]))
-                await broadcast(room, msg)
+                await broadcast(room, msg, exclude=ws if room == "nearby" else None)
                 if room == "nearby": await send_json_safe(ws, msg)
             elif kind == "voice_signal":
                 target = str(data.get("to", ""))[:24].lower()
