@@ -4,7 +4,7 @@ import os
 import secrets
 import sqlite3
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -226,6 +226,7 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(..., min_length=1
         rooms["nearby"].add(pid)
         positions.setdefault(pid, {"id": pid, "username": me["username"], "x": 0, "z": 0})
     await broadcast("nearby", {"type":"presence","event":"online","player":{"id":pid,"username":me["username"]}}, exclude=ws)
+    recent_messages = deque()
     try:
         await ws.send_json({"type":"ready","player":{"id":pid,"username":me["username"]}})
         while True:
@@ -248,8 +249,15 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(..., min_length=1
                 async with connection_lock: rooms[room].add(pid)
                 await ws.send_json({"type":"joined_group","group":group})
             elif kind == "message":
+                now = time.monotonic()
+                while recent_messages and now - recent_messages[0] > 5:
+                    recent_messages.popleft()
+                if len(recent_messages) >= 5:
+                    await ws.send_json({"type":"error","message":"Chat rate limit: wait a few seconds before sending again"})
+                    continue
                 body = str(data.get("body", "")).strip()
                 if not body or len(body) > 1000: continue
+                recent_messages.append(now)
                 recipient = data.get("recipient")
                 group = data.get("group")
                 if recipient:
